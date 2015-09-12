@@ -32,7 +32,7 @@ import java.io.IOException;
 
 public class FloatingCameraService extends Service implements SurfaceHolder.Callback {
 
-    ImageView close, flash, resize;
+    ImageView close, flash, resize, rotate;
     RelativeLayout wrap_layout;
     static Camera camera = null;
     SurfaceView surfaceView;
@@ -41,11 +41,11 @@ public class FloatingCameraService extends Service implements SurfaceHolder.Call
 
     private WindowManager windowManager;
     private LinearLayout floatingCamLL;
-
+    private int mRotate = 0;
     int width, height;
 
     @Override
-    public void onCreate() {
+    public void onCreate () {
         super.onCreate();
 
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
@@ -68,6 +68,7 @@ public class FloatingCameraService extends Service implements SurfaceHolder.Call
         close = (ImageView) viewToLoad.findViewById(R.id.close);
         flash = (ImageView) viewToLoad.findViewById(R.id.flash);
         resize = (ImageView) viewToLoad.findViewById(R.id.resize);
+        rotate = (ImageView) viewToLoad.findViewById(R.id.rotate);
         wrap_layout = (RelativeLayout) viewToLoad.findViewById(R.id.wrap_layout);
         surfaceHolder = surfaceView.getHolder();
         surfaceHolder.addCallback(this);
@@ -91,23 +92,23 @@ public class FloatingCameraService extends Service implements SurfaceHolder.Call
         showCam.addListener(new Animator.AnimatorListener() {
 
             @Override
-            public void onAnimationStart(Animator animation) {
+            public void onAnimationStart (Animator animation) {
                 windowManager.addView(floatingCamLL, floatingCamLLParams);
             }
 
             @Override
-            public void onAnimationRepeat(Animator animation) {
+            public void onAnimationRepeat (Animator animation) {
                 // TODO Auto-generated method stub
 
             }
 
             @Override
-            public void onAnimationEnd(Animator animation) {
+            public void onAnimationEnd (Animator animation) {
 
             }
 
             @Override
-            public void onAnimationCancel(Animator animation) {
+            public void onAnimationCancel (Animator animation) {
                 // TODO Auto-generated method stub
 
             }
@@ -124,7 +125,7 @@ public class FloatingCameraService extends Service implements SurfaceHolder.Call
             private float initialTouchY;
 
             @Override
-            public boolean onTouch(View v, MotionEvent event) {
+            public boolean onTouch (View v, MotionEvent event) {
                 switch (event.getAction()) {
 
                     case MotionEvent.ACTION_DOWN:
@@ -189,7 +190,7 @@ public class FloatingCameraService extends Service implements SurfaceHolder.Call
                     private float initialTouchY;
 
                     @Override
-                    public boolean onTouch(View v, MotionEvent event) {
+                    public boolean onTouch (View v, MotionEvent event) {
 
                         switch (event.getAction()) {
 
@@ -236,7 +237,7 @@ public class FloatingCameraService extends Service implements SurfaceHolder.Call
 
         flash.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View v) {
+            public void onClick (View v) {
                 if (!flashOn) {
                     Camera.Parameters p = camera.getParameters();
                     p.setFlashMode(Camera.Parameters.FLASH_MODE_TORCH);
@@ -251,9 +252,25 @@ public class FloatingCameraService extends Service implements SurfaceHolder.Call
         });
         close.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View v) {
+            public void onClick (View v) {
                 Intent intent = new Intent(FloatingCameraService.this, FloatingCameraService.class);
                 stopService(intent);
+                previewing = false;
+                if (camera != null) {
+                    camera.stopPreview();
+                    camera.setPreviewCallback(null);
+                    camera.release();
+                    camera = null;
+                }
+                windowManager.removeView(floatingCamLL);
+
+            }
+        });
+        rotate.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick (View v) {
+                mRotate += 90;
+                if (mRotate == 360) mRotate = 0;
                 previewing = false;
                 if (camera != null) {
                     camera.stopPreview();
@@ -263,20 +280,20 @@ public class FloatingCameraService extends Service implements SurfaceHolder.Call
                     camera = null;
                 }
                 windowManager.removeView(floatingCamLL);
-
+                onCreate();
             }
         });
     }
 
     @Override
-    public IBinder onBind(Intent intent) {
+    public IBinder onBind (Intent intent) {
 
 
         return null;
     }
 
     @Override
-    public void surfaceCreated(SurfaceHolder holder) {
+    public void surfaceCreated (SurfaceHolder holder) {
 
         Display display = ((WindowManager) getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
 
@@ -305,7 +322,7 @@ public class FloatingCameraService extends Service implements SurfaceHolder.Call
                 new android.hardware.Camera.CameraInfo();
         android.hardware.Camera.getCameraInfo(Camera.CameraInfo.CAMERA_FACING_BACK, info);
         int result = (info.orientation - degrees + 360) % 360;
-
+        result = (result + mRotate) % 360;
         if (!previewing) {
             camera = Camera.open();
 
@@ -315,7 +332,7 @@ public class FloatingCameraService extends Service implements SurfaceHolder.Call
                     params.set("jpeg-quality", 72);
                     params.setPictureFormat(PixelFormat.JPEG);
                     camera.setParameters(params);
-                    camera.setDisplayOrientation(result);
+                    camera.setDisplayOrientation((result >= 180) ? result - 180 : result + 180);
                     camera.setPreviewDisplay(surfaceHolder);
                     camera.startPreview();
                     previewing = true;
@@ -329,17 +346,17 @@ public class FloatingCameraService extends Service implements SurfaceHolder.Call
 
 
     @Override
-    public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+    public void surfaceChanged (SurfaceHolder holder, int format, int width, int height) {
 
     }
 
     @Override
-    public void surfaceDestroyed(SurfaceHolder holder) {
+    public void surfaceDestroyed (SurfaceHolder holder) {
 
     }
 
     @Override
-    public void onConfigurationChanged(Configuration newConfig) {
+    public void onConfigurationChanged (Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
 
         previewing = false;
@@ -351,7 +368,7 @@ public class FloatingCameraService extends Service implements SurfaceHolder.Call
             camera = null;
         }
         windowManager.removeView(floatingCamLL);
-
+        mRotate = 0;
         onCreate();
     }
 }
