@@ -11,7 +11,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.graphics.PixelFormat;
+import android.graphics.SurfaceTexture;
 import android.hardware.Camera;
 import android.os.IBinder;
 import android.util.DisplayMetrics;
@@ -20,7 +22,7 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.SurfaceHolder;
-import android.view.SurfaceView;
+import android.view.TextureView;
 import android.view.View;
 import android.view.WindowManager;
 import android.view.animation.BounceInterpolator;
@@ -35,8 +37,7 @@ public class FloatingCameraService extends Service implements SurfaceHolder.Call
     ImageView close, flash, resize, rotate;
     RelativeLayout wrap_layout;
     static Camera camera = null;
-    SurfaceView surfaceView;
-    SurfaceHolder surfaceHolder;
+    private TextureView mTextureView;
     boolean previewing = false, flashOn = false;
 
     private WindowManager windowManager;
@@ -64,15 +65,86 @@ public class FloatingCameraService extends Service implements SurfaceHolder.Call
 
         floatingCamLL.addView(viewToLoad);
 
-        surfaceView = (SurfaceView) viewToLoad.findViewById(R.id.surfaceview);
+        mTextureView = (TextureView) viewToLoad.findViewById(R.id.surfaceview);
+        mTextureView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
+            @Override
+            public void onSurfaceTextureAvailable (SurfaceTexture surface, int width, int height) {
+                Display display = ((WindowManager) getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
+
+                int rotation = display.getRotation();
+                int degrees = 90;
+                switch (rotation) {
+                    case Surface.ROTATION_0:
+                        degrees = 0;
+                        break;
+                    case Surface.ROTATION_90:
+                        degrees = 90;
+                        break;
+                    case Surface.ROTATION_180:
+                        degrees = 180;
+                        break;
+                    case Surface.ROTATION_270:
+                        degrees = 270;
+                        break;
+                }
+                android.hardware.Camera.CameraInfo info =
+                        new android.hardware.Camera.CameraInfo();
+                android.hardware.Camera.getCameraInfo(Camera.CameraInfo.CAMERA_FACING_BACK, info);
+                int result = (info.orientation - degrees + 360) % 360;
+                result = (result + mRotate) % 360;
+                if (!previewing) {
+                    camera = Camera.open();
+
+                    if (camera != null) {
+                        try {
+                            Camera.Parameters params = camera.getParameters();
+                            params.set("jpeg-quality", 72);
+                            params.setPictureFormat(PixelFormat.JPEG);
+                            camera.setParameters(params);
+                            camera.setDisplayOrientation((result >= 180) ? result - 180 : result + 180);
+                            Matrix matrix = new Matrix();
+                            matrix.setScale(-1, 1);
+                            matrix.postTranslate(width, 0);
+                            mTextureView.setTransform(matrix);
+                            camera.setPreviewTexture(surface);
+                            camera.startPreview();
+                            previewing = true;
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+
+                }
+            }
+
+            @Override
+            public void onSurfaceTextureSizeChanged (SurfaceTexture surface, int width, int height) {
+
+            }
+
+            @Override
+            public boolean onSurfaceTextureDestroyed (SurfaceTexture surface) {
+                previewing = false;
+                if (camera != null) {
+                    camera.stopPreview();
+                    camera.setPreviewCallback(null);
+                    camera.release();
+                    camera = null;
+                }
+                return true;
+            }
+
+            @Override
+            public void onSurfaceTextureUpdated (SurfaceTexture surface) {
+
+            }
+        });
         close = (ImageView) viewToLoad.findViewById(R.id.close);
         flash = (ImageView) viewToLoad.findViewById(R.id.flash);
         resize = (ImageView) viewToLoad.findViewById(R.id.resize);
         rotate = (ImageView) viewToLoad.findViewById(R.id.rotate);
         wrap_layout = (RelativeLayout) viewToLoad.findViewById(R.id.wrap_layout);
-        surfaceHolder = surfaceView.getHolder();
-        surfaceHolder.addCallback(this);
-        surfaceHolder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
+
         final WindowManager.LayoutParams floatingCamLLParams = new WindowManager.LayoutParams(
                 width / 2, height / 2,
                 WindowManager.LayoutParams.TYPE_PHONE,
@@ -298,48 +370,48 @@ public class FloatingCameraService extends Service implements SurfaceHolder.Call
     @Override
     public void surfaceCreated (SurfaceHolder holder) {
 
-        Display display = ((WindowManager) getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
-
-        int rotation = display.getRotation();
-        int degrees = 90;
-        switch (rotation) {
-            case Surface.ROTATION_0:
-                degrees = 0;
-                break;
-            case Surface.ROTATION_90:
-                degrees = 90;
-                break;
-            case Surface.ROTATION_180:
-                degrees = 180;
-                break;
-            case Surface.ROTATION_270:
-                degrees = 270;
-                break;
-        }
-        android.hardware.Camera.CameraInfo info =
-                new android.hardware.Camera.CameraInfo();
-        android.hardware.Camera.getCameraInfo(Camera.CameraInfo.CAMERA_FACING_BACK, info);
-        int result = (info.orientation - degrees + 360) % 360;
-        result = (result + mRotate) % 360;
-        if (!previewing) {
-            camera = Camera.open();
-
-            if (camera != null) {
-                try {
-                    Camera.Parameters params = camera.getParameters();
-                    params.set("jpeg-quality", 72);
-                    params.setPictureFormat(PixelFormat.JPEG);
-                    camera.setParameters(params);
-                    camera.setDisplayOrientation((result >= 180) ? result - 180 : result + 180);
-                    camera.setPreviewDisplay(surfaceHolder);
-                    camera.startPreview();
-                    previewing = true;
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-
-        }
+//        Display display = ((WindowManager) getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
+//
+//        int rotation = display.getRotation();
+//        int degrees = 90;
+//        switch (rotation) {
+//            case Surface.ROTATION_0:
+//                degrees = 0;
+//                break;
+//            case Surface.ROTATION_90:
+//                degrees = 90;
+//                break;
+//            case Surface.ROTATION_180:
+//                degrees = 180;
+//                break;
+//            case Surface.ROTATION_270:
+//                degrees = 270;
+//                break;
+//        }
+//        android.hardware.Camera.CameraInfo info =
+//                new android.hardware.Camera.CameraInfo();
+//        android.hardware.Camera.getCameraInfo(Camera.CameraInfo.CAMERA_FACING_BACK, info);
+//        int result = (info.orientation - degrees + 360) % 360;
+//        result = (result + mRotate) % 360;
+//        if (!previewing) {
+//            camera = Camera.open();
+//
+//            if (camera != null) {
+//                try {
+//                    Camera.Parameters params = camera.getParameters();
+//                    params.set("jpeg-quality", 72);
+//                    params.setPictureFormat(PixelFormat.JPEG);
+//                    camera.setParameters(params);
+//                    camera.setDisplayOrientation((result >= 180) ? result - 180 : result + 180);
+//                    camera.setPreviewDisplay(surfaceHolder);
+//                    camera.startPreview();
+//                    previewing = true;
+//                } catch (IOException e) {
+//                    e.printStackTrace();
+//                }
+//            }
+//
+//        }
     }
 
 
@@ -361,7 +433,6 @@ public class FloatingCameraService extends Service implements SurfaceHolder.Call
         if (camera != null) {
             camera.stopPreview();
             camera.setPreviewCallback(null);
-
             camera.release();
             camera = null;
         }
