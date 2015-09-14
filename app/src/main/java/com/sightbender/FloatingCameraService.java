@@ -104,7 +104,10 @@ public class FloatingCameraService extends Service implements SurfaceHolder.Call
 
             @Override
             public void onAnimationEnd (Animator animation) {
-
+//                ObjectAnimator flip = ObjectAnimator.ofFloat(floatingCamLL, "rotationY", -90.0f, 90f);
+//                flip.setDuration(10);
+//                flip.setInterpolator(new AccelerateDecelerateInterpolator());
+//                flip.start();
             }
 
             @Override
@@ -299,23 +302,18 @@ public class FloatingCameraService extends Service implements SurfaceHolder.Call
 
         int rotation = display.getRotation();
         int degrees = 90;
-        String rotate = "portrait";
         switch (rotation) {
             case Surface.ROTATION_0:
                 degrees = 0;
-                rotate = "portrait";
                 break;
             case Surface.ROTATION_90:
                 degrees = 90;
-                rotate = "landscape";
                 break;
             case Surface.ROTATION_180:
                 degrees = 180;
-                rotate = "portrait";
                 break;
             case Surface.ROTATION_270:
                 degrees = 270;
-                rotate = "landscape";
                 break;
         }
         android.hardware.Camera.CameraInfo info =
